@@ -1,3 +1,8 @@
+const mongo = require('promised-mongo');
+// You can use any MONGO_URL here, whether it's locally or on cloud.
+const db = mongo('mongodb://localhost/mydb');
+const authorsCollection = db.collection('authors');
+
 import * as _ from 'underscore';
 
 import {
@@ -22,19 +27,24 @@ const Author = new GraphQLObjectType({
 });
 
 const Query = new GraphQLObjectType({
-  name: 'RootQuery',
+  name: "Queries",
   fields: {
     authors: {
       type: new GraphQLList(Author),
-      resolve: function() {
-        return [];
+      resolve: function(rootValue, args, info) {
+        let fields = {};
+        let fieldASTs = info.fieldASTs;
+        fieldASTs[0].selectionSet.selections.map(function(selection) {
+          fields[selection.name.value] = 1;
+        });
+        return authorsCollection.find({}, fields).toArray();
       }
     }
   }
 });
 
 const Mutation = new GraphQLObjectType({
-  name: 'Mutations',
+  name: "Mutations",
   fields: {
     createAuthor: {
       type: Author,
@@ -44,7 +54,9 @@ const Mutation = new GraphQLObjectType({
         twitterHandle: {type: GraphQLString}
       },
       resolve: function(rootValue, args) {
-        throw new Error('Not Implemented')
+        let author = Object.assign({}, args);
+        return db.authors.insert(author)
+          .then(_ => author);
       }
     }
   }
